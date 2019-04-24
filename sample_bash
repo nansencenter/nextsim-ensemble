@@ -1,0 +1,100 @@
+#!/bin/bash
+
+set -o vi
+
+#export HISTCONTROL=ignoreboth:erasedups
+#shopt -s histappend
+#PROMPT_COMMAND="history -n; history -w; history -c; history -r; $PROMPT_COMMAND"
+
+if [ -e /usr/share/terminfo/x/xterm-256color ]; then
+            export TERM='xterm-256color'
+    else
+            export TERM='xterm-color'
+fi
+
+export TERM='xterm-256color'
+
+shopt -s checkwinsize
+
+#PS1='[\@](\h@\W)$ '
+PS1='\[\e[0;31m\][\@]\[\e[0;33m\](\w)$\n\[\e[0;34m\]\!|--> \[\e[0;0m\]'
+
+#--------- ENVIRONMENT VARIABLES -----------------------
+
+#-----------------------------------------------------------------------
+#---------- SHELL FUNCTIONS --------------------------------------------
+#-----------------------------------------------------------------------
+function calendar {
+    D=${GITDIR}/ToDo/cal
+    [ $# = 0 ] && echo 'Provide year and month'
+
+    [ $# = 1 ] && MM=$(printf "%02d" $1) &&\
+               CL=${D}/calendar_$(date +%Y)${MM}.tex &&\
+               vim ${CL}
+
+    [ $# = 2 ] && YYYY=20$1 && MM=$(printf "%02d" $2) &&\
+               CL=${D}/calendar_${YYYY}${MM}.tex &&\
+               vim ${CL}
+}
+
+function dtree {
+    find ${1-./} -print | sed -e 's;[^/]*/;|____;g;s;____|; |;g'
+}
+
+function findd { find ${1-.} -type d; }
+
+function findl { find ${1-.} -type l; }
+
+function fgit { [ $1 = 'remote' ] && git remote show origin; }
+
+function fn {
+    [ $# = 0 ] && typeset -f
+    [ $# != 0 ] && [ $1 = '-l' ] && typeset -F | sort
+    [ $# != 0 ] && [ $1 != '-l' ] && typeset -f $@
+}
+
+function mntsim { sudo mount -t nfs sverdrup-2:/vol/sim /Volumes/sim; }
+
+function sfrt {
+    [ $1 = 'activate'   ] && source activate FERRET
+    [ $1 = 'deactivate' ] && source deactivate FERRET
+}
+
+function sob { source ~/.bashrc; }
+
+function wtimer {
+    [ $1 = '1' ] && echo "Break given at:  `date '+%F %H:%M:%S'`"
+    [ $1 = '2' ] && echo "Started at: `date '+%F %H:%M:%S'`"
+}
+
+function ToDo {
+    D=${GITDIR}/ToDo
+    YYYY=$(date "+%Y"); YYYYMM=$(date "+%Y%m");
+    TD=${D}/ToDo_main_${YYYY}.tex
+    CL=${D}/cal/calendar_${YYYYMM}.tex
+    vim $(echo ${TD} ${CL})
+}
+
+# docker job control functions
+
+function bjobs { docker container ls -a; }
+
+function bstop { docker stop $(docker container ls | grep $1 | awk '{print $1}'); }
+
+function bclean { docker container prune && docker image prune; }
+
+function brun {
+    [ $# = 0 ] && echo 'Provide a docker image to run shell'
+    [ $# = 1 ] && IMAGE=$1 && docker run -it --entrypoint /bin/bash ${IMAGE}
+}
+
+function bmake_nextsim {
+    export USE_ENSEMBLE=${1-1}
+    [ ${USE_ENSEMBLE} = 0 ] && dockerfile=Dockerfile
+    [ ${USE_ENSEMBLE} != 0 ] && dockerfile=scripts/ensemble/Dockerfile.ensemble
+    docker build . -t nextsim -f ${dockerfile}
+}
+function bmake_enkfc {
+    dockerfile=Dockerfile
+    docker build . -t enkf-c -f ${dockerfile}
+}
