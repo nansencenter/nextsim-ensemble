@@ -3,6 +3,7 @@
 LBREAK="/------------------------------------------------------------/"
 KERNEL=$(uname -s)
 MACHINE=$(uname -n)
+TWAIT=15
 
 [[ ${KERNEL} == 'Linux' ]] || DOCKER=1
 [ !$# ] || [[ $@ == "EnKF" ]] && UPDATE=1
@@ -24,6 +25,29 @@ fi
 . ${DYNFILE}
 
 checkpath ${ENSPATH}        # check if ensemble root directory/create
+
+if [ ${UPDATE} ]; then
+# update ensemble
+  checkpath ${FILTER}        # check if ensemble filter directory/create
+  cd ${FILTER}; checkpath prior # store prior states here
+
+# some of the EnKF config files should be modified each analysis cycle
+# such as time of the observations/model outputs
+# link configuration files
+  sed -e "s;^ENSSIZE.*$;ENSSIZE = "${ESIZE}";g" \
+         ${EnKF_CONF}/enkf.prm > enkf.prm
+  sed -e "s;^ENSSIZE.*$;ENSSIZE = "${ESIZE}";g" \
+         ${EnKF_CONF}/enkf-global.prm > enkf-global.prm
+  ${LINK} ${EnKF_CONF}/{grid,model,obs,obstypes}.prm .
+#  ${LINK} ${EnKF_CONF}/{stats}.prm .
+# link makefile, shell script
+  ${LINK} ${EnKF_CONF}/{Makefile,run_enkf.sh} .
+# link directories including grid and observations
+  ${LINK} ${EnKF_CONF}/{../examples/neXtSIM_config/conf,obs} .
+# copy executables
+  ${COPY} ${EnKF_EXEC}/enkf_{prep,calc,update} .
+
+fi
 
 # initialize and run ensemble
 ENSEMBLE+=()                # copy files to ensemble members' paths
@@ -52,33 +76,31 @@ for (( mem=1; mem<=${ESIZE}; mem++ )); do
     if [ ${mem} -gt "1" ];then
         while kill -0 "$XPID"; do
             echo "Process still running... ${XPID}"
-            sleep 120
+            sleep ${TWAIT}
         done
     fi
 # submit nextsim run on docker for the ensemble member #${mem}
-    cd ${MEMPATH}; ID=$( getpid ./${SRUN} ${CONFILE} ${NPROC} ${ENVFILE} )
+    cd ${MEMPATH}; source ${ENVFILE}; ID=$( getpid ./${SRUN} ${CONFILE} ${NPROC} )
     XPID=${ID};echo ${XPID}
 done
 
-if [ ${UPDATE} ]; then
-# update ensemble
-  checkpath ${FILTER}        # check if ensemble filter directory/create
-  cd ${FILTER}
+while kill -0 "$XPID"; do
+    echo "Process still running... ${XPID}"
+    sleep ${TWAIT}
+done
 
-# some of the EnKF config files should be modified each analysis cycle
-# such as time of the observations/model outputs
-# link configuration files
-  ${LINK} ${EnKF_CONF}/{enkf,enkf-global,grid,model,obs,obstypes,stats}.prm .
-# link makefile, shell script and copy executables
-  ${LINK} ${EnKF_CONF}/{Makefile,run_enkf.sh} .
-  ${COPY} ${EnKF_EXEC}/enkf_{prep,calc,update} .
+# a docker file should be written for enkf
+# other option is to loop each ensemble in a docker script then call enkf
 
-# copy/ link the prior.nc of each member into ${FILTER}
-  for (( mem=1; mem<=${ESIZE}; mem++ )); do
-    touch prior_${ENSEMBLE[${mem}]}.nc
-  done
+cd ${ENSPATH}
+for (( mem=1; mem<=${ESIZE}; mem++ )); do
+    cp ${ENSEMBLE[${mem}]}/prior.nc ${FILTER}/prior/${ENSEMBLE[${mem}]}.nc
+done
 
 # 'make enkf' will call sequentially enkf_{prep,calc,update} executables
-# write a dockerfile to call it
-# -CHeCK- calls also clean / we may not want it
-fi
+
+cd FILTER; make enkf &> out.enkf
+
+
+# link mem???.nc.analysis data_links/mem???/analysis.nc/
+
