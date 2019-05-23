@@ -12,7 +12,7 @@ sed -i "s/^EXPNAME.*$/EXPNAME=neXtSIM_test22_05/g" ./neXtSIM_ensemble.env
 > ./nohup.out
 rm -rf ${ENSPATH}
 checkpath ${ENSPATH}        # check if ensemble root directory/create
-checkpath ${EnKFDIR}        # check if ensemble filter directory/create
+checkpath ${FILTER}        # check if ensemble filter directory/create
 
 for (( mem=1; mem<=${ESIZE}; mem++ )); do
         MEMBER=$(leadingzero 2 ${mem})
