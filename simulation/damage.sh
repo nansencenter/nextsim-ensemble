@@ -1,5 +1,10 @@
 #!/bin/bash
 
+sed -i --follow-symlinks "s;^randf.*$;randf = .true.;g" ./pseudo2D.nml
+sed -i --follow-symlinks "s;^vwndspd.*$;vwndspd = 3;g" ./pseudo2D.nml
+sed -i "s/^EXPNAME.*$/EXPNAME=neXtSIM_test22_05/g" ./neXtSIM_ensemble.env
+
+#############################################################################
 . neXtSIM_io_paths.env      # paths to relevant directories
 . ensemble_run_function.sh  # functions used in this script
 . ${DYNFILE}   # neXtSIM_ensemble.env
@@ -9,9 +14,7 @@ rm -rf ${ENSPATH}
 checkpath ${ENSPATH}        # check if ensemble root directory/create
 checkpath ${EnKFDIR}        # check if ensemble filter directory/create
 
-sed  -e "s;^randf.*$;randf = .true.;g" ./pseudo2D.nml
-
- for (( mem=1; mem<=${ESIZE}; mem++ )); do
+for (( mem=1; mem<=${ESIZE}; mem++ )); do
         MEMBER=$(leadingzero 2 ${mem})
         MEMNAME=ENS${MEMBER}
         mkdir -p ${ENSPATH}
@@ -58,5 +61,4 @@ sed  -e "s;^randf.*$;randf = .true.;g" ./pseudo2D.nml
                 echo "${XPID} for ${MEMNAME} is stopped accidentally, redo"
             fi
         done
-  #  done
 done
