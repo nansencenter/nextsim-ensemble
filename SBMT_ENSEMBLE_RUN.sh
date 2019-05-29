@@ -3,7 +3,7 @@
 LBREAK="/------------------------------------------------------------/"
 KERNEL=$(uname -s)
 MACHINE=$(uname -n)
-TWAIT=15
+TWAIT=15 # time in seconds to wait to check the status of the previous member
 
 [[ ${KERNEL} == 'Linux' ]] || DOCKER=1
 [ !$# ] || [[ $@ == "EnKF" ]] && UPDATE=1
@@ -24,34 +24,46 @@ fi
 . ensemble_run_function.sh  # functions used in this script
 . ${DYNFILE}
 
-checkpath ${ENSPATH}        # check if ensemble root directory/create
+# checkpath is called from ensemble_run_function.sh
+checkpath ${ENSPATH} # check if ensemble root directory/create
 
 if [ ${UPDATE} ]; then
 # update ensemble
-  checkpath ${FILTER}        # check if ensemble filter directory/create
+  checkpath ${FILTER} # check if ensemble filter directory/create
   cd ${FILTER}; checkpath prior # store prior states here
 
 # some of the EnKF config files should be modified each analysis cycle
 # such as time of the observations/model outputs
-# link configuration files
+# here copy or link configuration files
   sed -e "s;^ENSSIZE.*$;ENSSIZE = "${ESIZE}";g" \
          ${EnKF_CONF}/enkf.prm > enkf.prm
   sed -e "s;^ENSSIZE.*$;ENSSIZE = "${ESIZE}";g" \
          ${EnKF_CONF}/enkf-global.prm > enkf-global.prm
-  ${LINK} ${EnKF_CONF}/{grid,model,obs,obstypes}.prm .
+  ${LINK} ${EnKF_CONF}/{grid,model,obstypes,singleob}.prm .
 #  ${LINK} ${EnKF_CONF}/{stats}.prm .
+  ${COPY} ${EnKF_CONF}/obs.prm .
+
+# list observation data in the assimlation cycle into obs.prm
+# ToDo: this part can be called from another script
+  tind=$(echo "(${duration}+1)/1"|bc)
+#  for (( tind = 0; tind < ${tduration}; tind++ )); do
+  SMOSOBS=${OBSPATH}/${OBSNAME}_$(date +%Y%m%d -d "${time_init} + ${tind} day").nc
+  [ -f ${SMOSOBS} ] && echo "FILE = ${SMOSOBS}" >> obs.prm
+#  done
 # link makefile, shell script
-  ${LINK} ${EnKF_CONF}/{Makefile,run_enkf.sh} .
+  ${LINK} ${EnKF_CONF}/{Makefile,run_enkf.sh,obs} .
 # link directories including grid and observations
-  ${LINK} ${EnKF_CONF}/{../examples/neXtSIM_config/conf,obs} .
+  ${LINK} ${GRDFILE} ${REMLINK}/reference_grid.nc
+  ${LINK} ${GRDFILE} reference_grid.nc
 # copy executables
   ${COPY} ${EnKF_EXEC}/enkf_{prep,calc,update} .
-
-fi
+fi # UPDATE
 
 # initialize and run ensemble
 ENSEMBLE+=()                # copy files to ensemble members' paths
 for (( mem=1; mem<=${ESIZE}; mem++ )); do
+# submiting ensemble members one by one on a machine without queue system
+# ToDo: should be in a seperate script on fram or sisu
     MEMBER=$(leadingzero 3 ${mem}); MEMNAME=mem${MEMBER}
     ENSEMBLE+=([${mem}]=${MEMNAME})
     MEMPATH=${ENSPATH}/${MEMNAME}; checkpath ${MEMPATH}
@@ -66,31 +78,41 @@ for (( mem=1; mem<=${ESIZE}; mem++ )); do
 
     [ ${ENVFILE} ] && ${COPY} ${RUNPATH}/${ENVFILE} ${MEMPATH}/.
 
-    sed "s;^exporter_path=.*$;exporter_path="${exporter_path}";g"\
+# modify nextsim.cfg for each member
+    sed -e "s;^exporter_path=.*$;exporter_path="${exporter_path}";g"\
+        -e "s;^time_init=.*$;time_init="${time_init}";g"\
+        -e "s;^id=.*$;id=${mem};g"\
+        -e "s;^duration=.*$;duration="${duration}";g"\
+        -e "s;^output_timestep=.*$;output_timestep="${duration}";g"\
         ${RUNPATH}/${CONFILE} > ${MEMPATH}/${CONFILE}
 
+# modify environment neXtSIM_ensemble.env for each member
     sed -e "s;^MEMNAME=.*$;MEMNAME="${MEMNAME}";g" \
         -e "s;^MEMPATH=.*$;MEMPATH="${MEMPATH}";g" \
         ${RUNPATH}/${DYNFILE} > ${MEMPATH}/${SRCFILE}
 
+# wait for the previous member (after the 1st) to finish before submitting the next one
     if [ ${mem} -gt "1" ];then
         while kill -0 "$XPID"; do
             echo "Process still running... ${XPID}"
             sleep ${TWAIT}
         done
     fi
-# submit nextsim run on docker for the ensemble member #${mem}
+# submit ensemble member #${mem} and get PID to wait
     cd ${MEMPATH}; source ${ENVFILE}; ID=$( getpid ./${SRUN} ${CONFILE} ${NPROC} )
     XPID=${ID};echo ${XPID}
 done
 
+# wait all members to finish before update
 while kill -0 "$XPID"; do
     echo "Process still running... ${XPID}"
     sleep ${TWAIT}
-done
+done # ENSEMBLE
 
-# a docker file should be written for enkf
+# ToDo: a docker file should be written for enkf
 # other option is to loop each ensemble in a docker script then call enkf
+
+if [ ${UPDATE} ]; then
 
 cd ${ENSPATH}
 for (( mem=1; mem<=${ESIZE}; mem++ )); do
@@ -98,9 +120,10 @@ for (( mem=1; mem<=${ESIZE}; mem++ )); do
 done
 
 # 'make enkf' will call sequentially enkf_{prep,calc,update} executables
+cd ${FILTER}; make enkf &> out.enkf
+#cd FILTER; make singleob &> out.enkf
+fi #UPDATE
 
-cd FILTER; make enkf &> out.enkf
 
-
-# link mem???.nc.analysis data_links/mem???/analysis.nc/
+# link mem???.nc.analysis data_links/mem???/analysis.nc to restart from the analysed state
 
