@@ -12,10 +12,8 @@ function getpid() {
   runfile=$1
   confile=$2
   nproc=$3
-  mumps_mem=$4 
- # envfile=$5
   logfile=sbmt.log
- ${runfile} ${confile} ${nproc} ${mumps_mem} &> ${logfile} &
+  ${runfile} ${confile} ${nproc} &> ${logfile} &
   echo $!
 }
 

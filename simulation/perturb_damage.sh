@@ -1,22 +1,28 @@
 #!/bin/bash
+sed -i --follow-symlinks "s;^randf.*$;randf = .false.;g" ./pseudo2D.nml
+sed -i "s/^EXPNAME.*$/EXPNAME=neXtSIM_test23_05/g" ./neXtSIM_ensemble.env
+damage=(-0.1 -0.08 -0.06 -0.04 -0.02  0.02  0.04  0.06  0.08 0.1 0.0)
+ESIZE=${#damage[@]}
 
+#####################################################################################
+KERNEL=$(uname -s)
 . neXtSIM_io_paths.env      # paths to relevant directories
 . ensemble_run_function.sh  # functions used in this script
+echo ${OUTPATH}
 . ${DYNFILE}   # neXtSIM_ensemble.env
 . ${ENVFILE}   # nextsim_johansen.src
+echo ${ENSPATH}
 > ./nohup.out
+echo ${ENSPATH}
 rm -rf ${ENSPATH}
 checkpath ${ENSPATH}        # check if ensemble root directory/create
-checkpath ${EnKFDIR}        # check if ensemble filter directory/create
+checkpath ${FILTER}        # check if ensemble filter directory/create
 
-sed  -e "s;^randf.*$;randf = .true.;g" ./pseudo2D.nml
-
- for (( mem=1; mem<=${ESIZE}; mem++ )); do
+for (( mem=1; mem<=${ESIZE}; mem++ )); do
         MEMBER=$(leadingzero 2 ${mem})
         MEMNAME=ENS${MEMBER}
         mkdir -p ${ENSPATH}
         MEMPATH=${ENSPATH}/${MEMNAME}; checkpath ${MEMPATH}
-        #MEMPATH=${ENSPATH}/${MEMNAME}; checkpath ${MEMPATH}
         SRUN=run_${EXPNAME}_${MEMNAME}.sh
         while true; do
             ${COPY} ${RUNFILE} ${MEMPATH}/${SRUN}
@@ -30,8 +36,9 @@ sed  -e "s;^randf.*$;randf = .true.;g" ./pseudo2D.nml
 
             [ ${ENVFILE}x != ''x ] && ${COPY} ${RUNPATH}/${ENVFILE} ${MEMPATH}/.
 
-             sed -e "s;^exporter_path=.*$;exporter_path="${exporter_path}";g" \
-                ${RUNPATH}/${CONFILE} > ${MEMPATH}/${CONFILE}  # CONFILE  nextsim.cfg
+            sed -e "s;^alea_factor=.*$;alea_factor="${damage[i-1]}";g" \
+                -e "s;^exporter_path=.*$;exporter_path="${exporter_path}";g" \
+                ${RUNPATH}/${CONFILE} > ${MEMPATH}/${CONFILE}  # CONFILE： nextsim.cfg
             
             sed -e "s;^MEMNAME=.*$;MEMNAME="${MEMNAME}";g" \
                 -e "s;^MEMPATH=.*$;MEMPATH="${MEMPATH}";g" \
@@ -58,5 +65,4 @@ sed  -e "s;^randf.*$;randf = .true.;g" ./pseudo2D.nml
                 echo "${XPID} for ${MEMNAME} is stopped accidentally, redo"
             fi
         done
-  #  done
 done

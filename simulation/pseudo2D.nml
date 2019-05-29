@@ -1,18 +1,18 @@
 ! Namelist for mod_random_forcing
 
 &setup
-iopath   = "../IO"
+iopath = /docker_io
 xdim     = 360
 ydim     = 360
 /
 
 &pseudo2D
-randf    = .true.
+randf = .false.
 seed     = 11
 vslp     =  10
 vtaux    =  0.001
 vtauy    =  0.001
-vwndspd  =  0.64
+vwndspd  =  3
 vclouds  =  0.005
 vairtmp  =  9.0
 vprecip  =  1.0
