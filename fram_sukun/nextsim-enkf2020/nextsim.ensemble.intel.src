@@ -1,0 +1,66 @@
+# Environment for compiling and running neXtSIM + EnKF on fram
+# 
+# email for slurm jobs
+export MY_EMAIL="sukun.cheng@nersc.no"
+# set USE_ENSEMBLE=1 and FFTW_DIR is set below
+export USE_ENSEMBLE=1
+
+# Load the right modules
+module --force purge
+ml load StdEnv
+ml load ifort/2018.3.222-GCC-7.3.0-2.30
+ml load CMake/3.12.1
+ml load Boost/1.68.0-intel-2018b-Python-3.6.6
+ml load netCDF-C++4/4.3.0-intel-2018b
+ml load FFTW/3.3.8-intel-2018b
+ml load PETSc/3.10.1-intel-2018b
+#ml load OpenBLAS/0.3.1-GCC-7.3.0-2.30
+ml load imkl/2018.3.222-iimpi-2018b
+# ncview/nco (compatible with our intel compiler)
+ml ncview/2.1.7-intel-2018b
+ml load NCO/4.7.9-intel-2018b
+
+# Linking module and neXtSIM envinronment variables
+export PETSC_DIR=$EBROOTPETSC
+export BOOST_INCDIR=$EBROOTBOOST/include
+export BOOST_LIBDIR=$EBROOTBOOST/lib
+export NETCDF_DIR=$EBROOTNETCDFMINCPLUSPLUS4
+export FFTW_DIR=${EBROOTFFTW}
+export BLAS_DIR=${EBROOTOPENBLAS}
+
+CLUSTER_ROOT_DIR=/cluster/projects/nn2993k/sim
+
+#======= User or use-case specific directories
+export NEXTSIMDIR=$HOME/src/nextsim
+export NEXTSIMTOOLS_ROOT_DIR=$HOME/src/nextsim-tools
+export NEXTSIMF_ROOT_DIR=$HOME/src/nextsimf
+export NEXTSIM_ENV_ROOT_DIR=$HOME/src/nextsim-env/machines/fram_sukun
+export XSIM_COMP_VERBOSE=no
+export IO_nextsim=$HOME/src/IO_nextsim
+
+#======= links to input observation and forecasts data, and meshes, 
+export NEXTSIM_MESH_DIR=$CLUSTER_ROOT_DIR/mesh
+#export NEXTSIM_DATA_DIR=$NEXTSIM/data
+#export INPUT_OBS_DATA_DIR=
+#GMSH related variables
+#export GMSH_DIR=$CLUSTER_ROOT_DIR/packages/gmsh/
+export GMSH_DIR=$CLUSTER_ROOT_DIR/packages/gmsh-intel/
+export PATH=$PATH:$GMSH_DIR/bin
+export XSIMCOMP_VERBOSE=no
+export USE_NEXTWIM=0
+#export NEXTSIM_BUILD_TYPE=
+
+# ======== LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$BOOST_DIR/lib:$LD_LIBRARY_PATH
+#export LD_LIBRARY_PATH=$PETSC_DIR/lib:$LD_LIBRARY_PATH
+#export LD_LIBRARY_PATH=$FFTW_DIR/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$BLAS_DIR/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$NEXTSIMDIR/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$NEXTSIMDIR/modules/enkf/gridutils-c/libgu.so:$LD_LIBRARY_PATH
+# ============== paths
+#export PATH=$PATH:$NEXTSIM_ROOT_DIR/model/bin
+export PATH=$PATH:$GMSH_DIR/bin
+export PATH=$PATH:$NEXTSIMTOOLS_ROOT_DIR/python/pynextsim/scripts
+export PATH=$PATH:$NEXTSIMTOOLS_ROOT_DIR/scripts
+export PATH=$PATH:$NEXTSIMF_ROOT_DIR/pynextsimf/scripts
+export PATH=$PATH:$NEXTSIMF_ROOT_DIR/scripts

@@ -1,0 +1,24 @@
+! Namelist for mod_random_forcing
+
+&setup
+iopath = '.'
+xdim     = 3600
+ydim     = 501
+debug = .false.
+/
+
+&pseudo2D
+randf    = .false.
+seed     = 11
+vslp     =  10
+vtaux    =  0.001
+vtauy    =  0.001
+vwndspd  =  3
+vclouds  =  0.005
+vairtmp  =  9.0
+vprecip  =  1.0
+vrelhum  =  1.0
+scorr    =  1000
+tcorr    =  2
+prsflg   =  2
+/
